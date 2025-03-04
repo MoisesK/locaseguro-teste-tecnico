@@ -1,0 +1,79 @@
+version: "3.7"
+services:
+    # image com xdebug já setado para desenvolvimento
+    api:
+        image: astrotechdevs/php-nginx
+        container_name: locaseguro-api
+        restart: unless-stopped
+        working_dir: /app
+        ports:
+            - 8001:80
+        volumes:
+            - ./:/app
+            - ./.docker/consumer/php-fpm.conf:/etc/supervisor/conf.d/php-fpm.conf
+        networks:
+            - locaseguro-network
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        environment:
+          - ENABLE_XDEBUG=true
+
+    mysql:
+        image: mysql:8.0
+        container_name: locaseguro-mysql
+        command: [
+            '--character-set-server=utf8mb4',
+            '--collation-server=utf8mb4_unicode_ci',
+            '--wait_timeout=28800',
+            '--sql-mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION',
+            '--sort_buffer_size=50485760' # 10MB
+        ]
+        restart: always
+        ports:
+        - "3384:3306"
+        environment:
+        - TZ=America/Sao_Paulo
+        - MYSQL_ROOT_PASSWORD=secret
+        - MYSQL_DATABASE=locaseguro
+        networks:
+        - locaseguro-network
+        volumes:
+        - ./.docker/mysql/dbdata:/var/lib/mysql
+
+
+    redis:
+        image: redis:6.2.6
+        container_name: locaseguro-redis
+        restart: always
+        ports:
+        - "6879:6379"
+        volumes:
+        - ./.docker/redis:/data
+        networks:
+        - locaseguro-network
+        depends_on:
+        - api
+
+    rabbitmq:
+        image: rabbitmq:3.11-management
+        container_name: locaseguro-rabbitmq
+        hostname: 'rabbitmq-dev'
+        restart: always
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+        environment:
+            - RABBITMQ_DEFAULT_USER=guest
+            - RABBITMQ_DEFAULT_PASS=guest     
+            - RABBITMQ_NODENAME=rabbitmq
+        volumes:
+            - ./.docker/rabbitmq/data/:/var/lib/rabbitmq/
+            - ./.docker/rabbitmq/log/:/var/log/rabbitmq
+        networks:
+            - locaseguro-network
+        depends_on:
+            - api
+
+networks:
+    locaseguro-network:
+        driver: bridge
