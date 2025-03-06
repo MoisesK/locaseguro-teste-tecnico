@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Console\Commands\ConsumeQueue;
+use App\Shared\Infra\Exceptions\ValidationException;
+use Illuminate\Http\Request;
 use Illuminate\Foundation\Application;
 use App\Shared\Infra\Middleware\ResponseToJson;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -22,7 +23,27 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
-    })->withCommands([
-        ConsumeQueue::class
-    ])->create();
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if ($e instanceof ValidationException) {
+                $response = [
+                    'status'        => false,
+                    'response'      => $e->details(),
+                    'message'       => $e->getMessage(),
+                    'paramError'    => true
+                ];
+    
+                return response()->json($response, 400);
+            }
+    
+            if ($e instanceof Throwable) {
+                $response = [
+                    'status'        => false,
+                    'response'      => $e->getTrace(),
+                    'message'       => $e->getMessage(),
+                    'paramError'    => false
+                ];
+    
+                return response()->json($response, 400);
+            }
+        });
+    })->create();

@@ -1,59 +1,56 @@
-import React, { useEffect, useState } from 'react';
-import { useForm, FormProvider } from 'react-hook-form'; // Importando o React Hook Form
-import { TextField, Button, Box, Typography, MenuItem, Select, InputLabel, FormControl } from '@mui/material'; // Componentes do Material-UI
-import { toast } from 'react-toastify'; // Para exibir mensagens de sucesso/erro
-import 'react-toastify/dist/ReactToastify.css'; // Estilos para o Toast
-import Cleave from 'cleave.js/react'; // Importando o Cleave.js
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm, FormProvider } from 'react-hook-form';
+import { TextField, Button, Box, Typography, CircularProgress } from '@mui/material';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css'; 
+import Cleave from 'cleave.js/react'; 
+import { fetchAddressByCEP, formatCPF } from '../utils/utils';
+import { get, post } from '../services/api';
 
 interface Property {
-  endereco: string;
-  cidade: string;
-  preco?: number;
-  proprietario_id: string; // Relacionamento com o proprietário
+  owner: Owner;
+  city: string;
+  number: string;
+  amount: string;
+  street: string;
+  zipCode: string;
+}
+
+interface Owner {
+  name: string;
+  cpf: string;
+  email: string;
 }
 
 const PropertyForm: React.FC = () => {
+  const navigate = useNavigate();
   const methods = useForm<Property>(); 
-  const [proprietarios, setProprietarios] = useState<any[]>([]); // Estado para armazenar os proprietários
+  const [isLoading, setIsLoading] = useState<any>(false);
 
-  // Carregar os proprietários da API (supondo que você tenha uma API que retorna os proprietários)
-  useEffect(() => {
-    const fetchProprietarios = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/proprietarios');
-        const data = await response.json();
-        setProprietarios(data); // Supondo que a API retorne um array de proprietários
-      } catch (error) {
-        toast.error('Erro ao carregar proprietários');
-      }
-    };
-    fetchProprietarios();
-  }, []);
-
-  // Função para cadastrar o imóvel
-  const cadastrarImovel = async (data: Property) => {
-    if (!data.endereco || !data.cidade || !data.proprietario_id) {
+  const registerProperty = async (data: Property) => {
+    setIsLoading(true);
+    if (!data.street || !data.city || !data.owner) {
       toast.error('Por favor, preencha todos os campos obrigatórios!');
       return;
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/cadastro-imovel', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+      data.amount = data.amount.replace(/\D/g, '');
 
-      const result = await response.json();
-      if (response.ok) {
+      const result = await post('/properties', data);
+
+      if (result.status) {
         toast.success('Imóvel cadastrado com sucesso!');
-        methods.reset(); // Limpar campos após sucesso
+        methods.reset();
+
+        navigate('/');
       } else {
+        setIsLoading(false);
         toast.error(result.message || 'Erro ao cadastrar imóvel');
       }
-    } catch (error) {
+    } catch (err) {
+      setIsLoading(false);
       toast.error('Erro na comunicação com a API');
     }
   };
@@ -62,7 +59,7 @@ const PropertyForm: React.FC = () => {
     <FormProvider {...methods}>
       <Box
         component="form"
-        onSubmit={methods.handleSubmit(cadastrarImovel)} 
+        onSubmit={methods.handleSubmit(registerProperty)} 
         sx={{
           maxWidth: 500,
           width: '100%',
@@ -78,33 +75,57 @@ const PropertyForm: React.FC = () => {
         </Typography>
 
         <TextField
-          id="endereco"
-          label="Endereço"
+          id="zipCode"
           type="text"
           fullWidth
           margin="normal"
-          {...methods.register('endereco', { required: true })}
+          {...methods.register('zipCode', { required: true })}
+          placeholder="CEP"
+          onChange={(e) => {
+            if (e.target.value.length <= 5) return;
+
+            setIsLoading(true);
+
+            fetchAddressByCEP(e.target.value).then((data) => {
+              methods.setValue('city', data.localidade);
+              methods.setValue('street', data.logradouro);
+            }).finally(() => setIsLoading(false));
+          }}
+        />
+
+      <TextField
+          id="street"
+          type="text"
+          fullWidth
+          margin="normal"
+          {...methods.register('street', { required: true })}
           placeholder="Endereço do Imóvel"
         />
 
         <TextField
-          id="cidade"
-          label="Cidade"
+          id="city"
           type="text"
           fullWidth
           margin="normal"
-          {...methods.register('cidade', { required: true })}
+          {...methods.register('city', { required: true })}
           placeholder="Cidade do Imóvel"
         />
 
-        {/* Campo para preço com a máscara monetária */}
-        <TextField
-          id="preco"
-          label="Preço"
+      <TextField
+          id="number"
           type="text"
           fullWidth
           margin="normal"
-          placeholder="ex:. R$ 1.000,00"
+          {...methods.register('number', { required: true })}
+          placeholder="Número"
+        />
+
+        <TextField
+          id="amount"
+          type="text"
+          fullWidth
+          margin="normal"
+          placeholder="Valor do Imóvel"
           InputProps={{
             inputComponent: Cleave as any,
             inputProps: {
@@ -113,29 +134,55 @@ const PropertyForm: React.FC = () => {
                 numeralThousandsGroupStyle: 'thousand',
                 prefix: 'R$ ',
                 delimiter: '.',
-                noImmediatePrefix: true,
-                rawValueTrimPrefix: false,
+                noImmediatePrefix: false,
+                rawValueTrimPrefix: true,
+                numeralDecimalMark: ',',
+                integerNoGroup: false,
+                numeralDecimalScale: 2
               },
             },
           }}
-          {...methods.register('preco')}
+          {...methods.register('amount', { required: true })}
         />
 
-        <FormControl fullWidth margin="normal">
-          <InputLabel id="proprietario-select-label">Proprietário</InputLabel>
-          <Select
-            labelId="proprietario-select-label"
-            id="proprietario_id"
-            label="Proprietário"
-            {...methods.register('proprietario_id', { required: true })}
-          >
-            {proprietarios.map((proprietario) => (
-              <MenuItem key={proprietario.id} value={proprietario.id}>
-                {proprietario.nome}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      <TextField
+          id="owner.email"
+          type="text"
+          fullWidth
+          margin="normal"
+          {...methods.register('owner.email', { required: true })}
+          placeholder="Email do Proprietário"
+          onChange={(e) => {
+            if (e.target.value.length <= 5) return;
+
+            setIsLoading(true);
+            get(`/properties/check-owner-email?email=${e.target.value}`).then((data) => {
+              if (data.response.length === 0) return;
+
+              methods.setValue('owner.name', data.response.name);
+              methods.setValue('owner.cpf', formatCPF(data.response.cpf));
+          }).finally(() => setIsLoading(false))
+        }
+        }
+        />
+
+        <TextField
+          id="owner.name"
+          type="text"
+          fullWidth
+          margin="normal"
+          {...methods.register('owner.name', { required: true })}
+          placeholder="Nome do Proprietário"
+        />
+
+      <TextField
+          id="owner.cpf"
+          type="text"
+          fullWidth
+          margin="normal"
+          {...methods.register('owner.cpf', { required: true })}
+          placeholder="CPF do Proprietário"
+        />
 
         <Button 
           type="submit" 
@@ -144,7 +191,19 @@ const PropertyForm: React.FC = () => {
           color="primary" 
           sx={{ mt: 2 }}
         >
-          Cadastrar Imóvel
+          {
+            isLoading ? <CircularProgress color='white' /> : 'Cadastrar Imóvel'
+          } 
+        </Button>
+
+        <Button 
+          variant="contained" 
+          sx={{ mt: 1 }}
+          fullWidth 
+          color="primary" 
+          onClick={() => navigate('/')}
+        >
+          Voltar
         </Button>
       </Box>
     </FormProvider>

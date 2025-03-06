@@ -10,7 +10,6 @@ services:
             - 8001:80
         volumes:
             - ./:/app
-            - ./.docker/consumer/php-fpm.conf:/etc/supervisor/conf.d/php-fpm.conf
         networks:
             - locaseguro-network
         extra_hosts:
@@ -40,7 +39,6 @@ services:
         volumes:
         - ./.docker/mysql/dbdata:/var/lib/mysql
 
-
     redis:
         image: redis:6.2.6
         container_name: locaseguro-redis
@@ -53,26 +51,6 @@ services:
         - locaseguro-network
         depends_on:
         - api
-
-    rabbitmq:
-        image: rabbitmq:3.11-management
-        container_name: locaseguro-rabbitmq
-        hostname: 'rabbitmq-dev'
-        restart: always
-        ports:
-            - "5672:5672"
-            - "15672:15672"
-        environment:
-            - RABBITMQ_DEFAULT_USER=guest
-            - RABBITMQ_DEFAULT_PASS=guest     
-            - RABBITMQ_NODENAME=rabbitmq
-        volumes:
-            - ./.docker/rabbitmq/data/:/var/lib/rabbitmq/
-            - ./.docker/rabbitmq/log/:/var/log/rabbitmq
-        networks:
-            - locaseguro-network
-        depends_on:
-            - api
 
 networks:
     locaseguro-network:

@@ -10,7 +10,7 @@ interface ValueObject
      * Raw value object value
      * @return string|int|float|bool
      */
-    public function value(): string|int|float|bool;
+    public function value(): mixed;
 
     /**
      * Method to return a object as string

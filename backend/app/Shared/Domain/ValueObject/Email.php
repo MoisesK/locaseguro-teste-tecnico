@@ -26,7 +26,7 @@ final class Email extends ValueObjectBase
         $this->value = $email;
     }
 
-    public function value(): string|int|float|bool
+    public function value(): mixed
     {
         return $this->value;
     }
