@@ -35,4 +35,6 @@ GET /properties/check-owner-email?email=teste@email.com
 
 Testes automatizados:
 
-@todo
+```bash
+composer run test:integration
+```

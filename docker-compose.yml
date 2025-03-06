@@ -9,7 +9,7 @@ services:
         ports:
             - 8001:80
         volumes:
-            - ./:/app
+            - ./backend/:/app
         networks:
             - locaseguro-network
         extra_hosts:
@@ -37,7 +37,7 @@ services:
         networks:
         - locaseguro-network
         volumes:
-        - ./.docker/mysql/dbdata:/var/lib/mysql
+        - ./backend/.docker/mysql/dbdata:/var/lib/mysql
 
     redis:
         image: redis:6.2.6
@@ -46,7 +46,7 @@ services:
         ports:
         - "6879:6379"
         volumes:
-        - ./.docker/redis:/data
+        - ./backend/.docker/redis:/data
         networks:
         - locaseguro-network
         depends_on:
